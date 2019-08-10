@@ -25,6 +25,22 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Shooting")
 	bool bInfiniteBullets;
+
+	UPROPERTY(EditAnywhere, Category = "Torch")
+	float TorchFuelCapacity;
+
+	UPROPERTY(EditAnywhere, Category = "Torch")
+	float TorchFuelDrainRate;
+
+	UPROPERTY(EditAnywhere, Category = "Sanity")
+		float MaxSanity;
+
+	UPROPERTY(EditAnywhere, Category = "Sanity")
+		float SanityRecoverRate;
+
+	UPROPERTY(EditAnywhere, Category = "Sanity")
+		float SanityDrainRate;
+
 private:
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -45,6 +61,14 @@ private:
 
 	bool bIsPebbleLoaded;
 
+	float CurrentTorchFuel;
+	bool bIsTorchIgnited;
+
+	AActor* InteractableActor;
+
+	float CurrentSanity;
+	TArray<class ATorchActor*> ActiveTorchActors;
+
 #pragma endregion
 
 #pragma region Functions
@@ -60,6 +84,22 @@ public:
 	void StartShooting();
 	void StopShooting();
 
+	void Interact();
+
+	void LoadPebble();
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Shooting")
+	bool HasPebbleLoaded() const;
+	void AddAmmo(int32 InAmount);
+	int32 GetAmmo();
+
+	void ToggleTorch();
+	void AddTorchFuel(float InAmount);
+	void RemoveTorchFuel(float InAmount);
+	float GetTorchFuelAmount();
+
+	float GetSanity();
+	bool HasActiveTorchesAround();
+
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
@@ -73,6 +113,11 @@ protected:
 	void ShotReady();
 	void Shoot();
 	void TraceShot();
+
+	UFUNCTION()
+	void CharacterBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
+	UFUNCTION()
+	void CharacterEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Shooting")
 	void OnShotSuccess();
