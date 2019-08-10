@@ -165,7 +165,7 @@ void APyramidMathCharacter::TraceShot()
 	//FVector TraceEnd = GetActorLocation() + GetActorForwardVector() * 2000.0F;
 	FHitResult Hit;
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 0.1F);
-	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, ))
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility))
 	{
 		if (Hit.bBlockingHit)
 		{
