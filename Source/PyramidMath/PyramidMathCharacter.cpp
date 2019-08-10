@@ -10,13 +10,19 @@
 #include "GameFramework/PlayerController.h"
 #include "ExplorerMovementComponent.h"
 #include "TimerManager.h"
-#include "DrawDebugHelpers.h"
 #include "Shootable.h"
+#include "ShootablePhysicalMaterial.h"
+#include "PlayerInteractable.h"
+#include "TorchActor.h"
+#include "DrawDebugHelpers.h"
 
 APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitializer) : Super(ObjInitializer.SetDefaultSubobjectClass<UExplorerMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterBeginOverlap);
+	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterEndOverlap);
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -47,10 +53,24 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	ShootingRate = 0.75F;
 	bInfiniteBullets = false;
 
+	TorchFuelCapacity = 100.0F;
+	TorchFuelDrainRate = 1.0F;
+
+	MaxSanity = 100.0F;
+	SanityRecoverRate = 10.0F;
+	SanityDrainRate = 1.0F;
+
 	CurrentAmmo = 0;
 	bWantsToShoot = false;
 	bCanShoot = true;
 	bIsPebbleLoaded = false;
+
+	CurrentTorchFuel = TorchFuelCapacity;
+	bIsTorchIgnited = false;
+
+	InteractableActor = nullptr;
+
+	CurrentSanity = MaxSanity;
 }
 
 void APyramidMathCharacter::Tick(float DeltaSeconds)
@@ -60,7 +80,7 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 	if (PC)
 	{
 		FHitResult Hit;
-		if (PC->GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, false, Hit))
+		if (PC->GetHitResultUnderCursor(ECollisionChannel::ECC_GameTraceChannel1, false, Hit))
 		{
 			if (Hit.bBlockingHit)
 			{
@@ -73,6 +93,30 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 				PC->SetControlRotation(NewRotation);
 			}
 		}
+	}
+	if (bIsTorchIgnited)
+	{
+		CurrentTorchFuel -= TorchFuelDrainRate * DeltaSeconds;
+		if (CurrentTorchFuel <= 0.0F)
+		{
+			CurrentTorchFuel = 0.0F;
+			bIsTorchIgnited = false;
+		}
+	}
+	if (bIsTorchIgnited || HasActiveTorchesAround())
+	{
+		CurrentSanity = FMath::Clamp<float>(CurrentSanity + SanityRecoverRate * DeltaSeconds, 0.0F, MaxSanity);
+		UE_LOG(LogTemp, Warning, TEXT("Recovering sanity: %f"), CurrentSanity);
+	}
+	else
+	{
+		CurrentSanity -= SanityDrainRate * DeltaSeconds;
+		if (CurrentSanity <= 0.0F)
+		{
+			CurrentSanity = 0.0F;
+			// Announce player's death!
+		}
+		UE_LOG(LogTemp, Warning, TEXT("Going insane!: %f"), CurrentSanity);
 	}
 }
 
@@ -119,6 +163,79 @@ void APyramidMathCharacter::StopShooting()
 	bWantsToShoot = false;
 }
 
+void APyramidMathCharacter::Interact()
+{
+	if (InteractableActor)
+	{
+		IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(InteractableActor);
+		if (Interactable->CanInteract())
+		{
+			Interactable->Interact();
+		}
+	}
+}
+
+void APyramidMathCharacter::LoadPebble()
+{
+	bIsPebbleLoaded = true;
+}
+
+bool APyramidMathCharacter::HasPebbleLoaded() const
+{
+	return bIsPebbleLoaded;
+}
+
+void APyramidMathCharacter::AddAmmo(int32 InAmount)
+{
+	CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo + InAmount, 0, AmmoCapacity);
+}
+
+int32 APyramidMathCharacter::GetAmmo()
+{
+	return CurrentAmmo;
+}
+
+void APyramidMathCharacter::ToggleTorch()
+{
+	bIsTorchIgnited = !bIsTorchIgnited;
+}
+
+void APyramidMathCharacter::AddTorchFuel(float InAmount)
+{
+	CurrentTorchFuel = FMath::Clamp<float>(CurrentTorchFuel + InAmount, 0.0F, TorchFuelCapacity);
+}
+
+void APyramidMathCharacter::RemoveTorchFuel(float InAmount)
+{
+	if (InAmount < 0.0F || InAmount > CurrentTorchFuel)
+	{
+		return;
+	}
+	CurrentTorchFuel -= InAmount;
+}
+
+float APyramidMathCharacter::GetTorchFuelAmount()
+{
+	return CurrentTorchFuel;
+}
+
+float APyramidMathCharacter::GetSanity()
+{
+	return CurrentSanity;
+}
+
+bool APyramidMathCharacter::HasActiveTorchesAround()
+{
+	for (int i = 0; i < ActiveTorchActors.Num(); i++)
+	{
+		if(ActiveTorchActors[i]->IsIgnited())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void APyramidMathCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	// Set up gameplay key bindings
@@ -128,6 +245,10 @@ void APyramidMathCharacter::SetupPlayerInputComponent(class UInputComponent* Pla
 
 	PlayerInputComponent->BindAction("Shoot", IE_Pressed, this, &APyramidMathCharacter::StartShooting);
 	PlayerInputComponent->BindAction("Shoot", IE_Released, this, &APyramidMathCharacter::StopShooting);
+
+	PlayerInputComponent->BindAction("Torch", IE_Pressed, this, &APyramidMathCharacter::ToggleTorch);
+
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &APyramidMathCharacter::Interact);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &APyramidMathCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &APyramidMathCharacter::MoveRight);
@@ -148,10 +269,15 @@ void APyramidMathCharacter::Shoot()
 	{
 		if (CurrentAmmo > 0 || bInfiniteBullets)
 		{
-			CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo - 1, 0, MAX_int32);
+			CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo - 1, 0, AmmoCapacity);
 			bCanShoot = false;
 			GetWorld()->GetTimerManager().SetTimer(TimerHandle_ShootingTimer, this, &APyramidMathCharacter::ShotReady, ShootingRate);
 			TraceShot();
+			OnShotSuccess();
+		}
+		else
+		{
+			OnShotOutOfAmmo();
 		}
 	}
 }
@@ -160,22 +286,59 @@ void APyramidMathCharacter::TraceShot()
 {
 	FVector TraceStart = GetActorLocation() + GetActorForwardVector() * 100.0F;
 	// Shoot where the cursor is aiming.
-	FVector TraceEnd = LookPoint;
+	FVector ShootDirection = LookPoint - TraceStart;
+	ShootDirection.Normalize();
+	// Lengthen the TraceEnd a little bit to make sure it hits the impact point just in case.
+	FVector TraceEnd = LookPoint + ShootDirection * 100.0F;
 	// Shoot forward to where the character is facing.
 	//FVector TraceEnd = GetActorLocation() + GetActorForwardVector() * 2000.0F;
 	FHitResult Hit;
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 0.1F);
-	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, ))
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_GameTraceChannel1))
 	{
 		if (Hit.bBlockingHit)
 		{
 			// Spawn something on the shot location.
 			DrawDebugSphere(GetWorld(), Hit.Location, 15.0F, 16, FColor::Red, false, .1F);
+			UPrimitiveComponent* HitComp = Hit.GetComponent();
+			UShootablePhysicalMaterial* PhysMat = Cast<UShootablePhysicalMaterial>(HitComp->GetBodyInstance()->GetSimplePhysicalMaterial());
+			if (PhysMat)
+			{
+				PhysMat->ShowImpact(Hit);
+			}
 			IShootable* Shootable = Cast<IShootable>(Hit.GetActor());
 			if (Shootable)
 			{
 				Shootable->GetShot(Hit);
 			}
 		}
+	}
+}
+
+void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
+{
+	IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(OtherActor);
+	if (Interactable && Interactable->CanInteract() && Interactable->IsInteractableComponent(OtherComp))
+	{
+		InteractableActor = OtherActor;
+	}
+	ATorchActor* TorchActor = Cast<ATorchActor>(OtherActor);
+	if (TorchActor)
+	{
+		ActiveTorchActors.Add(TorchActor);
+	}
+}
+
+void APyramidMathCharacter::CharacterEndOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex)
+{
+	if (InteractableActor && OtherActor == InteractableActor)
+	{
+		InteractableActor = nullptr;
+	}
+
+	ATorchActor* TorchActor = Cast<ATorchActor>(OtherActor);
+	if (ActiveTorchActors.Contains(TorchActor))
+	{
+		ActiveTorchActors.Remove(TorchActor);
 	}
 }
