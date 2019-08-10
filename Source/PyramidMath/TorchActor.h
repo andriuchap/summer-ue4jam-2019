@@ -58,8 +58,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual bool IsInteractableComponent(class UPrimitiveComponent* InOverlappedComponent) override;
-	virtual bool CanInteract() override;
-	virtual bool Interact() override;
+	virtual bool CanInteract(class APyramidMathCharacter* InCharacter) override;
+	virtual bool Interact(APyramidMathCharacter* InCharacter) override;
 	virtual FText GetInteractionName() override;
 
 	bool IsIgnited();

@@ -6,6 +6,10 @@
 #include "GameFramework/Character.h"
 #include "PyramidMathCharacter.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FHealthChangedDelegate, int32, int32);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGoldChangedDelegate, int32, int32);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FAmmoChangedDelegate, int32, int32);
+
 UCLASS(config=Game)
 class APyramidMathCharacter : public ACharacter
 {
@@ -15,6 +19,10 @@ public:
 #pragma region Properties
 
 public:
+
+	FHealthChangedDelegate OnHealthChanged;
+	FGoldChangedDelegate OnGoldChanged;
+	FAmmoChangedDelegate OnAmmoChanged;
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Shooting")
@@ -33,13 +41,16 @@ protected:
 	float TorchFuelDrainRate;
 
 	UPROPERTY(EditAnywhere, Category = "Sanity")
-		float MaxSanity;
+	float MaxSanity;
 
 	UPROPERTY(EditAnywhere, Category = "Sanity")
-		float SanityRecoverRate;
+	float SanityRecoverRate;
 
 	UPROPERTY(EditAnywhere, Category = "Sanity")
-		float SanityDrainRate;
+	float SanityDrainRate;
+
+	UPROPERTY(EditAnywhere, Category = "Sanity")
+	int32 MaxHealth;
 
 private:
 	/** Camera boom positioning the camera behind the character */
@@ -69,6 +80,10 @@ private:
 	float CurrentSanity;
 	TArray<class ATorchActor*> ActiveTorchActors;
 
+	int32 CurrentGold;
+
+	int32 CurrentHealth;
+
 #pragma endregion
 
 #pragma region Functions
@@ -91,14 +106,27 @@ public:
 	bool HasPebbleLoaded() const;
 	void AddAmmo(int32 InAmount);
 	int32 GetAmmo();
+	int32 GetAmmoCapacity();
 
 	void ToggleTorch();
 	void AddTorchFuel(float InAmount);
 	void RemoveTorchFuel(float InAmount);
 	float GetTorchFuelAmount();
+	float GetTorchFuelCapacity();
 
 	float GetSanity();
 	bool HasActiveTorchesAround();
+
+	int32 GetGold();
+	void AddGold(int32 InAmount);
+	void RemoveGold(int32 InAmount);
+
+	int32 GetHealth();
+	int32 GetMaxHealth();
+	void AddHealth(int32 InAmount);
+	void DealDamage(int32 InAmount);
+
+	bool NeedsRestocking();
 
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

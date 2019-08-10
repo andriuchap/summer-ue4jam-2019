@@ -61,42 +61,24 @@ bool ATorchActor::IsInteractableComponent(UPrimitiveComponent * InOverlappedComp
 	return InteractionComponent == InOverlappedComponent;
 }
 
-bool ATorchActor::CanInteract()
+bool ATorchActor::CanInteract(APyramidMathCharacter* InCharacter)
 {
-	UWorld* World = GetWorld();
-	if (World)
+	if (InCharacter)
 	{
-		APlayerController* PC = World->GetFirstPlayerController();
-		if (PC)
-		{
-			APyramidMathCharacter* Character = Cast<APyramidMathCharacter>(PC->GetPawn());
-			if (Character)
-			{
-				return Character->GetTorchFuelAmount() >= IgnitionFuelCost && !bIsTorchIgnited;
-			}
-		}
+		return InCharacter->GetTorchFuelAmount() >= IgnitionFuelCost && !bIsTorchIgnited;
 	}
 	return false;
 }
 
-bool ATorchActor::Interact()
+bool ATorchActor::Interact(APyramidMathCharacter* InCharacter)
 {
-	UWorld* World = GetWorld();
-	if (World)
+	if (InCharacter)
 	{
-		APlayerController* PC = World->GetFirstPlayerController();
-		if (PC)
+		if (InCharacter->GetTorchFuelAmount() >= IgnitionFuelCost)
 		{
-			APyramidMathCharacter* Character = Cast<APyramidMathCharacter>(PC->GetPawn());
-			if (Character)
-			{
-				if (Character->GetTorchFuelAmount() >= IgnitionFuelCost)
-				{
-					Character->RemoveTorchFuel(IgnitionFuelCost);
-					IgniteTorch();
-					return true;
-				}
-			}
+			InCharacter->RemoveTorchFuel(IgnitionFuelCost);
+			IgniteTorch();
+			return true;
 		}
 	}
 	return false;

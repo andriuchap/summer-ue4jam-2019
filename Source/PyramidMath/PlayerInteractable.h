@@ -21,7 +21,7 @@ class PYRAMIDMATH_API IPlayerInteractable
 public:
 	/** Used to check if the overlapped component is the one that's intended to be interacted with. */
 	virtual bool IsInteractableComponent(UPrimitiveComponent* InOverlappedComponent) = 0;
-	virtual bool CanInteract() = 0;
-	virtual bool Interact() = 0;
+	virtual bool CanInteract(class APyramidMathCharacter* InCharacter) = 0;
+	virtual bool Interact(APyramidMathCharacter* InCharacter) = 0;
 	virtual FText GetInteractionName() = 0;
 };

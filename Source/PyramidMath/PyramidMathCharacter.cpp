@@ -60,6 +60,8 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	SanityRecoverRate = 10.0F;
 	SanityDrainRate = 1.0F;
 
+	MaxHealth = 5;
+
 	CurrentAmmo = 0;
 	bWantsToShoot = false;
 	bCanShoot = true;
@@ -71,6 +73,8 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	InteractableActor = nullptr;
 
 	CurrentSanity = MaxSanity;
+
+	CurrentHealth = MaxHealth;
 }
 
 void APyramidMathCharacter::Tick(float DeltaSeconds)
@@ -106,7 +110,6 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 	if (bIsTorchIgnited || HasActiveTorchesAround())
 	{
 		CurrentSanity = FMath::Clamp<float>(CurrentSanity + SanityRecoverRate * DeltaSeconds, 0.0F, MaxSanity);
-		UE_LOG(LogTemp, Warning, TEXT("Recovering sanity: %f"), CurrentSanity);
 	}
 	else
 	{
@@ -116,7 +119,6 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 			CurrentSanity = 0.0F;
 			// Announce player's death!
 		}
-		UE_LOG(LogTemp, Warning, TEXT("Going insane!: %f"), CurrentSanity);
 	}
 }
 
@@ -168,9 +170,9 @@ void APyramidMathCharacter::Interact()
 	if (InteractableActor)
 	{
 		IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(InteractableActor);
-		if (Interactable->CanInteract())
+		if (Interactable->CanInteract(this))
 		{
-			Interactable->Interact();
+			Interactable->Interact(this);
 		}
 	}
 }
@@ -187,12 +189,19 @@ bool APyramidMathCharacter::HasPebbleLoaded() const
 
 void APyramidMathCharacter::AddAmmo(int32 InAmount)
 {
+	int32 OldAmmo = CurrentAmmo;
 	CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo + InAmount, 0, AmmoCapacity);
+	OnAmmoChanged.Broadcast(CurrentAmmo, OldAmmo);
 }
 
 int32 APyramidMathCharacter::GetAmmo()
 {
 	return CurrentAmmo;
+}
+
+int32 APyramidMathCharacter::GetAmmoCapacity()
+{
+	return AmmoCapacity;
 }
 
 void APyramidMathCharacter::ToggleTorch()
@@ -219,6 +228,11 @@ float APyramidMathCharacter::GetTorchFuelAmount()
 	return CurrentTorchFuel;
 }
 
+float APyramidMathCharacter::GetTorchFuelCapacity()
+{
+	return TorchFuelCapacity;
+}
+
 float APyramidMathCharacter::GetSanity()
 {
 	return CurrentSanity;
@@ -234,6 +248,75 @@ bool APyramidMathCharacter::HasActiveTorchesAround()
 		}
 	}
 	return false;
+}
+
+int32 APyramidMathCharacter::GetGold()
+{
+	return CurrentGold;
+}
+
+void APyramidMathCharacter::AddGold(int32 InAmount)
+{
+	if (InAmount <= 0)
+	{
+		return;
+	}
+	int32 OldGold = CurrentGold;
+	CurrentGold += InAmount;
+	OnGoldChanged.Broadcast(CurrentGold, OldGold);
+}
+
+void APyramidMathCharacter::RemoveGold(int32 InAmount)
+{
+	if (InAmount <= 0)
+	{
+		return;
+	}
+	int32 OldGold = CurrentGold;
+	CurrentGold -= InAmount;
+	OnGoldChanged.Broadcast(CurrentGold, OldGold);
+}
+
+int32 APyramidMathCharacter::GetHealth()
+{
+	return CurrentHealth;
+}
+
+int32 APyramidMathCharacter::GetMaxHealth()
+{
+	return MaxHealth;
+}
+
+void APyramidMathCharacter::AddHealth(int32 InAmount)
+{
+	if (InAmount <= 0)
+	{
+		return;
+	}
+	int32 OldHealth = CurrentHealth;
+	CurrentHealth = FMath::Clamp<int32>(CurrentHealth + InAmount, 0, MaxHealth);
+	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
+}
+
+void APyramidMathCharacter::DealDamage(int32 InAmount)
+{
+	if (InAmount <= 0)
+	{
+		return;
+	}
+	int32 OldHealth = CurrentHealth;
+	CurrentHealth -= InAmount;
+	if (CurrentHealth <= 0)
+	{
+		CurrentHealth = 0;
+		// DIE!
+	}
+	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
+}
+
+bool APyramidMathCharacter::NeedsRestocking()
+{
+	return CurrentAmmo < AmmoCapacity || CurrentTorchFuel < TorchFuelCapacity || CurrentHealth < MaxHealth;
 }
 
 void APyramidMathCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -269,7 +352,9 @@ void APyramidMathCharacter::Shoot()
 	{
 		if (CurrentAmmo > 0 || bInfiniteBullets)
 		{
+			int32 OldAmmo = CurrentAmmo;
 			CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo - 1, 0, AmmoCapacity);
+			OnAmmoChanged.Broadcast(CurrentAmmo, OldAmmo);
 			bCanShoot = false;
 			GetWorld()->GetTimerManager().SetTimer(TimerHandle_ShootingTimer, this, &APyramidMathCharacter::ShotReady, ShootingRate);
 			TraceShot();
@@ -285,13 +370,10 @@ void APyramidMathCharacter::Shoot()
 void APyramidMathCharacter::TraceShot()
 {
 	FVector TraceStart = GetActorLocation() + GetActorForwardVector() * 100.0F;
-	// Shoot where the cursor is aiming.
 	FVector ShootDirection = LookPoint - TraceStart;
 	ShootDirection.Normalize();
 	// Lengthen the TraceEnd a little bit to make sure it hits the impact point just in case.
 	FVector TraceEnd = LookPoint + ShootDirection * 100.0F;
-	// Shoot forward to where the character is facing.
-	//FVector TraceEnd = GetActorLocation() + GetActorForwardVector() * 2000.0F;
 	FHitResult Hit;
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 0.1F);
 	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_GameTraceChannel1))
@@ -318,8 +400,9 @@ void APyramidMathCharacter::TraceShot()
 void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
 	IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(OtherActor);
-	if (Interactable && Interactable->CanInteract() && Interactable->IsInteractableComponent(OtherComp))
+	if (Interactable && Interactable->CanInteract(this) && Interactable->IsInteractableComponent(OtherComp))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Ready to interact"));
 		InteractableActor = OtherActor;
 	}
 	ATorchActor* TorchActor = Cast<ATorchActor>(OtherActor);
@@ -331,8 +414,9 @@ void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * Overlapp
 
 void APyramidMathCharacter::CharacterEndOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex)
 {
-	if (InteractableActor && OtherActor == InteractableActor)
+	if (OtherActor == InteractableActor)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Not interacting"));
 		InteractableActor = nullptr;
 	}
 

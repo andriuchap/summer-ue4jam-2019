@@ -4,13 +4,26 @@
 #include "HUDWidget.h"
 #include "UMG/Public/Components/Image.h"
 #include "UMG/Public/Components/CanvasPanelSlot.h"
+#include "PyramidMathCharacter.h"
 
 UHUDWidget::UHUDWidget(const FObjectInitializer& ObjInitializer) : Super(ObjInitializer)
 {
 
 }
 
-void UHUDWidget::NativeConstruct()
+void UHUDWidget::NativeOnInitialized()
 {
-	Super::NativeConstruct();
+	Super::NativeOnInitialized();
+
+	APyramidMathCharacter* Character = Cast<APyramidMathCharacter>(GetOwningPlayer()->GetPawn());
+	if (Character)
+	{
+		Character->OnAmmoChanged.AddUFunction(this, FName("AmmoChanged"));
+		Character->OnHealthChanged.AddUFunction(this, FName("HealthChanged"));
+		Character->OnGoldChanged.AddUFunction(this, FName("GoldChanged"));
+
+		AmmoChanged(Character->GetAmmo(), Character->GetAmmo());
+		HealthChanged(Character->GetHealth(), Character->GetHealth());
+		GoldChanged(Character->GetGold(), Character->GetGold());
+	}
 }

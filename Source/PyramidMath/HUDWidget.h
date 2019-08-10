@@ -29,7 +29,16 @@ private:
 public:
 
 protected:
-	virtual void NativeConstruct() override;
+	virtual void NativeOnInitialized() override;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Pyramid")
+	void AmmoChanged(int32 InCurrentAmmo, int32 InOldAmmo);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Pyramid")
+	void HealthChanged(int32 InCurrentHealth, int32 OldHealth);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Pyramid")
+	void GoldChanged(int32 InCurrentGold, int32 OldGold);
 
 private:
 

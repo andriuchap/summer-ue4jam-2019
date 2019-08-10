@@ -21,4 +21,5 @@ void AExplorerHUD::BeginPlay()
 	Super::BeginPlay();
 	
 	HUDWidget = CreateWidget<UHUDWidget>(GetOwningPlayerController(), HUDWidgetClass);
+	HUDWidget->AddToViewport();
 }
