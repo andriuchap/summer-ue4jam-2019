@@ -94,7 +94,7 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 				LookDirection.Z = 0.0F;
 				LookDirection.Normalize();
 				FRotator NewRotation = LookDirection.Rotation();
-				PC->SetControlRotation(NewRotation);
+				PC->SetControlRotation(FMath::Lerp<float>(PC->GetControlRotation(), NewRotation, 8.0F * DeltaSeconds));
 			}
 		}
 	}
