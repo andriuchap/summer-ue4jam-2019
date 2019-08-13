@@ -52,6 +52,36 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Sanity")
 	int32 MaxHealth;
 
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		class UStaticMeshComponent* Gun;
+
+	UPROPERTY(EditAnywhere, Category = "Items")
+		FName GunAttachBone;
+
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		class UParticleSystemComponent* MuzzleFlash;
+
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		class UAudioComponent* GunFireSound;
+
+	UPROPERTY(EditAnywhere, Category = "Items")
+		class UAnimMontage* GunFireAnim;
+
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		UStaticMeshComponent* Torch;
+
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		UParticleSystemComponent* TorchFlame;
+
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		class UPointLightComponent* TorchLight;
+
+	UPROPERTY(EditAnywhere, Category = "Items")
+		FName TorchAttachBone;
+
+	UPROPERTY(EditAnywhere, Category = "Items")
+		float TorchIntensity;
+
 private:
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -124,7 +154,7 @@ public:
 	int32 GetHealth();
 	int32 GetMaxHealth();
 	void AddHealth(int32 InAmount);
-	void DealDamage(int32 InAmount);
+	void DealDamage(int32 InAmount, FVector DamageDirection);
 
 	bool NeedsRestocking();
 
@@ -134,6 +164,8 @@ public:
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
 protected:
+	virtual void BeginPlay() override;
+
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface

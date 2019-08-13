@@ -20,6 +20,11 @@ public:
 public:
 
 protected:
+	UPROPERTY(meta = (BindWidget))
+		class UBorder* ActionBorder;
+
+	UPROPERTY(meta = (BindWidget))
+		class UTextBlock* ActionName;
 
 private:
 
@@ -27,6 +32,9 @@ private:
 
 #pragma region Functions
 public:
+
+	void EnableAction(const FText& InText);
+	void DisableAction();
 
 protected:
 	virtual void NativeOnInitialized() override;

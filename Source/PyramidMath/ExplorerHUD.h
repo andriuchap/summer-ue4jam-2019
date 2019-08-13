@@ -32,6 +32,9 @@ private:
 public:
 	virtual void Tick(float DeltaSeconds) override;
 
+	void ShowAction(const FText& InAction);
+	void HideAction();
+
 protected:
 	virtual void BeginPlay() override;
 

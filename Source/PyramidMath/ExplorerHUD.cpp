@@ -16,6 +16,22 @@ void AExplorerHUD::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 }
 
+void AExplorerHUD::ShowAction(const FText & InAction)
+{
+	if (HUDWidget)
+	{
+		HUDWidget->EnableAction(InAction);
+	}
+}
+
+void AExplorerHUD::HideAction()
+{
+	if (HUDWidget)
+	{
+		HUDWidget->DisableAction();
+	}
+}
+
 void AExplorerHUD::BeginPlay()
 {
 	Super::BeginPlay();

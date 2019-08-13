@@ -8,6 +8,12 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Components/AudioComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimInstance.h"
 #include "ExplorerMovementComponent.h"
 #include "TimerManager.h"
 #include "Shootable.h"
@@ -15,6 +21,7 @@
 #include "PlayerInteractable.h"
 #include "TorchActor.h"
 #include "DrawDebugHelpers.h"
+#include "ExplorerHUD.h"
 
 APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitializer) : Super(ObjInitializer.SetDefaultSubobjectClass<UExplorerMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
@@ -34,6 +41,36 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
 	GetCharacterMovement()->JumpZVelocity = 600.f;
 	GetCharacterMovement()->AirControl = 0.2f;
+
+	Gun = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GunMesh"));
+	Gun->SetupAttachment(GetMesh());
+	Gun->SetCollisionProfileName(FName("NoCollision"));
+
+	GunAttachBone = FName("Item_R");
+
+	MuzzleFlash = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("MuzzleFlash"));
+	MuzzleFlash->SetupAttachment(Gun);
+	MuzzleFlash->bAutoActivate = false;
+
+	GunFireSound = CreateDefaultSubobject<UAudioComponent>(TEXT("GunFireSound"));
+	GunFireSound->SetupAttachment(Gun);
+	GunFireSound->bAutoActivate = false;
+
+	Torch = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TorchMesh"));
+	Torch->SetupAttachment(GetMesh());
+	Torch->SetCollisionProfileName(FName("NoCollision"));
+
+	TorchAttachBone = FName("Item_L");
+
+	TorchIntensity = 4000.0F;
+
+	TorchFlame = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("TorchFlame"));
+	TorchFlame->SetupAttachment(Torch);
+	TorchFlame->bAutoActivate = false;
+
+	TorchLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("TorchLight"));
+	TorchLight->SetupAttachment(Torch);
+	TorchLight->SetIntensity(0.0F);
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -98,7 +135,7 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 			}
 		}
 	}
-	if (bIsTorchIgnited)
+	/*if (bIsTorchIgnited)
 	{
 		CurrentTorchFuel -= TorchFuelDrainRate * DeltaSeconds;
 		if (CurrentTorchFuel <= 0.0F)
@@ -106,8 +143,8 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 			CurrentTorchFuel = 0.0F;
 			bIsTorchIgnited = false;
 		}
-	}
-	if (bIsTorchIgnited || HasActiveTorchesAround())
+	}*/
+	/*if (bIsTorchIgnited || HasActiveTorchesAround())
 	{
 		CurrentSanity = FMath::Clamp<float>(CurrentSanity + SanityRecoverRate * DeltaSeconds, 0.0F, MaxSanity);
 	}
@@ -119,7 +156,7 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 			CurrentSanity = 0.0F;
 			// Announce player's death!
 		}
-	}
+	}*/
 }
 
 void APyramidMathCharacter::MoveForward(float Value)
@@ -207,6 +244,16 @@ int32 APyramidMathCharacter::GetAmmoCapacity()
 void APyramidMathCharacter::ToggleTorch()
 {
 	bIsTorchIgnited = !bIsTorchIgnited;
+	if (bIsTorchIgnited)
+	{
+		TorchFlame->Activate(true);
+		TorchLight->SetIntensity(TorchIntensity);
+	}
+	else
+	{
+		TorchFlame->Deactivate();
+		TorchLight->SetIntensity(0.0F);
+	}
 }
 
 void APyramidMathCharacter::AddTorchFuel(float InAmount)
@@ -298,7 +345,7 @@ void APyramidMathCharacter::AddHealth(int32 InAmount)
 	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
 }
 
-void APyramidMathCharacter::DealDamage(int32 InAmount)
+void APyramidMathCharacter::DealDamage(int32 InAmount, FVector DamageDirection)
 {
 	if (InAmount <= 0)
 	{
@@ -312,11 +359,22 @@ void APyramidMathCharacter::DealDamage(int32 InAmount)
 		// DIE!
 	}
 	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
+	FVector LaunchVelocity = DamageDirection + FVector::UpVector;
+	LaunchVelocity.Normalize();
+	LaunchCharacter(LaunchVelocity * 500.0F, true, true);
 }
 
 bool APyramidMathCharacter::NeedsRestocking()
 {
 	return CurrentAmmo < AmmoCapacity || CurrentTorchFuel < TorchFuelCapacity || CurrentHealth < MaxHealth;
+}
+
+void APyramidMathCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	Gun->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, GunAttachBone);
+	Torch->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, TorchAttachBone);
 }
 
 void APyramidMathCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -356,6 +414,14 @@ void APyramidMathCharacter::Shoot()
 			CurrentAmmo = FMath::Clamp<int32>(CurrentAmmo - 1, 0, AmmoCapacity);
 			OnAmmoChanged.Broadcast(CurrentAmmo, OldAmmo);
 			bCanShoot = false;
+
+			MuzzleFlash->Activate(true);
+			GunFireSound->Play();
+			if (GunFireAnim)
+			{
+				GetMesh()->GetAnimInstance()->Montage_Play(GunFireAnim);
+			}
+
 			GetWorld()->GetTimerManager().SetTimer(TimerHandle_ShootingTimer, this, &APyramidMathCharacter::ShotReady, ShootingRate);
 			TraceShot();
 			OnShotSuccess();
@@ -369,14 +435,16 @@ void APyramidMathCharacter::Shoot()
 
 void APyramidMathCharacter::TraceShot()
 {
-	FVector TraceStart = GetActorLocation() + GetActorForwardVector() * 100.0F;
+	FVector TraceStart = GetActorLocation();
 	FVector ShootDirection = LookPoint - TraceStart;
 	ShootDirection.Normalize();
 	// Lengthen the TraceEnd a little bit to make sure it hits the impact point just in case.
 	FVector TraceEnd = LookPoint + ShootDirection * 100.0F;
 	FHitResult Hit;
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 0.1F);
-	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_GameTraceChannel1))
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_GameTraceChannel1, Params))
 	{
 		if (Hit.bBlockingHit)
 		{
@@ -404,6 +472,15 @@ void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * Overlapp
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Ready to interact"));
 		InteractableActor = OtherActor;
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (PC)
+		{
+			AExplorerHUD* HUD = Cast<AExplorerHUD>(PC->GetHUD());
+			if (HUD)
+			{
+				HUD->ShowAction(Interactable->GetInteractionName());
+			}
+		}
 	}
 	ATorchActor* TorchActor = Cast<ATorchActor>(OtherActor);
 	if (TorchActor)
@@ -418,6 +495,15 @@ void APyramidMathCharacter::CharacterEndOverlap(UPrimitiveComponent * Overlapped
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Not interacting"));
 		InteractableActor = nullptr;
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (PC)
+		{
+			AExplorerHUD* HUD = Cast<AExplorerHUD>(PC->GetHUD());
+			if (HUD)
+			{
+				HUD->HideAction();
+			}
+		}
 	}
 
 	ATorchActor* TorchActor = Cast<ATorchActor>(OtherActor);

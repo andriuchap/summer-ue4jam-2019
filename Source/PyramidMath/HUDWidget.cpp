@@ -5,10 +5,23 @@
 #include "UMG/Public/Components/Image.h"
 #include "UMG/Public/Components/CanvasPanelSlot.h"
 #include "PyramidMathCharacter.h"
+#include "UMG/Public/Components/Border.h"
+#include "UMG/Public/Components/TextBlock.h"
 
 UHUDWidget::UHUDWidget(const FObjectInitializer& ObjInitializer) : Super(ObjInitializer)
 {
 
+}
+
+void UHUDWidget::EnableAction(const FText & InText)
+{
+	ActionBorder->SetVisibility(ESlateVisibility::HitTestInvisible);
+	ActionName->SetText(InText);
+}
+
+void UHUDWidget::DisableAction()
+{
+	ActionBorder->SetVisibility(ESlateVisibility::Collapsed);
 }
 
 void UHUDWidget::NativeOnInitialized()
