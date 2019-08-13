@@ -28,8 +28,6 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
-	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterBeginOverlap);
-	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterEndOverlap);
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -55,6 +53,10 @@ APyramidMathCharacter::APyramidMathCharacter(const FObjectInitializer& ObjInitia
 	GunFireSound = CreateDefaultSubobject<UAudioComponent>(TEXT("GunFireSound"));
 	GunFireSound->SetupAttachment(Gun);
 	GunFireSound->bAutoActivate = false;
+
+	GunDrySound = CreateDefaultSubobject<UAudioComponent>(TEXT("GunDrySound"));
+	GunDrySound->SetupAttachment(Gun);
+	GunDrySound->bAutoActivate = false;
 
 	Torch = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TorchMesh"));
 	Torch->SetupAttachment(GetMesh());
@@ -118,7 +120,7 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (PC)
+	if (PC && InputEnabled())
 	{
 		FHitResult Hit;
 		if (PC->GetHitResultUnderCursor(ECollisionChannel::ECC_GameTraceChannel1, false, Hit))
@@ -135,15 +137,18 @@ void APyramidMathCharacter::Tick(float DeltaSeconds)
 			}
 		}
 	}
-	/*if (bIsTorchIgnited)
+	if (bIsTorchIgnited)
 	{
 		CurrentTorchFuel -= TorchFuelDrainRate * DeltaSeconds;
 		if (CurrentTorchFuel <= 0.0F)
 		{
 			CurrentTorchFuel = 0.0F;
+			TorchFlame->Deactivate();
 			bIsTorchIgnited = false;
 		}
-	}*/
+		float NewTorchIntensity = (CurrentTorchFuel / TorchFuelCapacity) * TorchIntensity;
+		TorchLight->SetIntensity(NewTorchIntensity);
+	}
 	/*if (bIsTorchIgnited || HasActiveTorchesAround())
 	{
 		CurrentSanity = FMath::Clamp<float>(CurrentSanity + SanityRecoverRate * DeltaSeconds, 0.0F, MaxSanity);
@@ -247,7 +252,7 @@ void APyramidMathCharacter::ToggleTorch()
 	if (bIsTorchIgnited)
 	{
 		TorchFlame->Activate(true);
-		TorchLight->SetIntensity(TorchIntensity);
+		TorchLight->SetIntensity((CurrentTorchFuel / TorchFuelCapacity) * TorchIntensity);
 	}
 	else
 	{
@@ -347,21 +352,27 @@ void APyramidMathCharacter::AddHealth(int32 InAmount)
 
 void APyramidMathCharacter::DealDamage(int32 InAmount, FVector DamageDirection)
 {
-	if (InAmount <= 0)
+	if (InAmount <= 0 || CurrentHealth == 0)
 	{
 		return;
 	}
 	int32 OldHealth = CurrentHealth;
 	CurrentHealth -= InAmount;
+	OnDamaged();
 	if (CurrentHealth <= 0)
 	{
 		CurrentHealth = 0;
-		// DIE!
+		Die(false);
 	}
 	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
 	FVector LaunchVelocity = DamageDirection + FVector::UpVector;
 	LaunchVelocity.Normalize();
 	LaunchCharacter(LaunchVelocity * 500.0F, true, true);
+}
+
+bool APyramidMathCharacter::IsDead()
+{
+	return CurrentHealth == 0;
 }
 
 bool APyramidMathCharacter::NeedsRestocking()
@@ -375,6 +386,9 @@ void APyramidMathCharacter::BeginPlay()
 
 	Gun->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, GunAttachBone);
 	Torch->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, TorchAttachBone);
+
+	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterBeginOverlap);
+	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &APyramidMathCharacter::CharacterEndOverlap);
 }
 
 void APyramidMathCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -424,11 +438,10 @@ void APyramidMathCharacter::Shoot()
 
 			GetWorld()->GetTimerManager().SetTimer(TimerHandle_ShootingTimer, this, &APyramidMathCharacter::ShotReady, ShootingRate);
 			TraceShot();
-			OnShotSuccess();
 		}
 		else
 		{
-			OnShotOutOfAmmo();
+			GunDrySound->Play();
 		}
 	}
 }
@@ -444,14 +457,16 @@ void APyramidMathCharacter::TraceShot()
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 0.1F);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
+	Params.bReturnPhysicalMaterial = true;
 	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_GameTraceChannel1, Params))
 	{
 		if (Hit.bBlockingHit)
 		{
 			// Spawn something on the shot location.
 			DrawDebugSphere(GetWorld(), Hit.Location, 15.0F, 16, FColor::Red, false, .1F);
-			UPrimitiveComponent* HitComp = Hit.GetComponent();
-			UShootablePhysicalMaterial* PhysMat = Cast<UShootablePhysicalMaterial>(HitComp->GetBodyInstance()->GetSimplePhysicalMaterial());
+			/*UPrimitiveComponent* HitComp = Hit.GetComponent();
+			UShootablePhysicalMaterial* PhysMat = Cast<UShootablePhysicalMaterial>(HitComp->GetBodyInstance()->GetSimplePhysicalMaterial());*/
+			UShootablePhysicalMaterial* PhysMat = Cast<UShootablePhysicalMaterial>(Hit.PhysMaterial);
 			if (PhysMat)
 			{
 				PhysMat->ShowImpact(Hit);
@@ -468,6 +483,7 @@ void APyramidMathCharacter::TraceShot()
 void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
 	IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(OtherActor);
+	UE_LOG(LogTemp, Warning, TEXT("What the fuck?"));
 	if (Interactable && Interactable->CanInteract(this) && Interactable->IsInteractableComponent(OtherComp))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Ready to interact"));

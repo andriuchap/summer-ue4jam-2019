@@ -14,20 +14,21 @@ UShootablePhysicalMaterial::UShootablePhysicalMaterial(const FObjectInitializer&
 
 void UShootablePhysicalMaterial::ShowImpact(const FHitResult & Hit)
 {
+	AActor* WorldActor = Hit.GetActor();
 	if (ImpactSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, Hit.Location);
+		UGameplayStatics::PlaySoundAtLocation(WorldActor, ImpactSound, Hit.Location);
 	}
 	if (ImpactParticle)
 	{
 		FTransform Transform;
 		Transform.SetLocation(Hit.Location);
 		Transform.SetRotation(Hit.ImpactNormal.ToOrientationRotator().Quaternion());
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, Transform);
+		UGameplayStatics::SpawnEmitterAtLocation(WorldActor->GetWorld(), ImpactParticle, Transform);
 	}
 	if (ImpactDecalClass)
 	{
-		UWorld* World = GetWorld();
+		UWorld* World = WorldActor->GetWorld();
 		if (World)
 		{
 			FTransform Transform;

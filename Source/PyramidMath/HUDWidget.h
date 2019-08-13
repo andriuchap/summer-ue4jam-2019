@@ -21,7 +21,7 @@ public:
 
 protected:
 	UPROPERTY(meta = (BindWidget))
-		class UBorder* ActionBorder;
+		class UPanelWidget* ActionBorder;
 
 	UPROPERTY(meta = (BindWidget))
 		class UTextBlock* ActionName;

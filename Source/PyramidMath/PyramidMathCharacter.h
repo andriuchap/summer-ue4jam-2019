@@ -64,6 +64,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Items")
 		class UAudioComponent* GunFireSound;
 
+	UPROPERTY(VisibleAnywhere, Category = "Items")
+		class UAudioComponent* GunDrySound;
+
 	UPROPERTY(EditAnywhere, Category = "Items")
 		class UAnimMontage* GunFireAnim;
 
@@ -155,6 +158,12 @@ public:
 	int32 GetMaxHealth();
 	void AddHealth(int32 InAmount);
 	void DealDamage(int32 InAmount, FVector DamageDirection);
+	UFUNCTION(BlueprintImplementableEvent, Category = "Pyramid Character")
+	void OnDamaged();
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Pyramid Character")
+	void Die(bool bIsVoidDeath);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Pyramid Character")
+	bool IsDead();
 
 	bool NeedsRestocking();
 
@@ -178,12 +187,6 @@ protected:
 	void CharacterBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
 	UFUNCTION()
 	void CharacterEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Shooting")
-	void OnShotSuccess();
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Shooting")
-	void OnShotOutOfAmmo();
 
 private:
 

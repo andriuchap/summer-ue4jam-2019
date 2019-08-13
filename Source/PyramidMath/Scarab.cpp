@@ -180,6 +180,7 @@ void AScarab::HitPlayer()
 			{
 				APyramidMathCharacter* Character = Cast<APyramidMathCharacter>(HitActor);
 				Character->DealDamage(1, GetActorForwardVector());
+				OnSuccessfulHit();
 			}
 		}
 	}

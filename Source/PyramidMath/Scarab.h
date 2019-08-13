@@ -60,6 +60,9 @@ protected:
 	void EvaluateChaseState();
 
 	void ClearScarab();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scarab")
+	void OnSuccessfulHit();
 public:	
 	virtual void Tick(float DeltaTime) override;
 

@@ -5,7 +5,7 @@
 #include "UMG/Public/Components/Image.h"
 #include "UMG/Public/Components/CanvasPanelSlot.h"
 #include "PyramidMathCharacter.h"
-#include "UMG/Public/Components/Border.h"
+#include "UMG/Public/Components/PanelWidget.h"
 #include "UMG/Public/Components/TextBlock.h"
 
 UHUDWidget::UHUDWidget(const FObjectInitializer& ObjInitializer) : Super(ObjInitializer)
