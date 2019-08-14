@@ -30,11 +30,11 @@ void UProblemUserWidget::SetProblem(UMathProblem * InProblem)
 {
 	if (InProblem)
 	{
-		if (InProblem->ProblemTexture)
-		{
+		//if (InProblem->ProblemTexture)
+		//{
 			UTexture2D* ProblemTexture = InProblem->ProblemTexture.LoadSynchronous();
 			ProblemImage->SetBrushFromTexture(ProblemTexture);
-		}
+		//}
 		TArray<int32> UnshuffeledIndices = TArray<int32>();
 		for (int i = 0; i < 3; i++)
 		{

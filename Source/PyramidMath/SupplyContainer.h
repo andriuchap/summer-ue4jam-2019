@@ -49,6 +49,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Supplies")
+	void OnLooted();
 private:
 
 

@@ -157,7 +157,7 @@ public:
 	int32 GetHealth();
 	int32 GetMaxHealth();
 	void AddHealth(int32 InAmount);
-	void DealDamage(int32 InAmount, FVector DamageDirection);
+	void DealDamage(int32 InAmount, FVector DamageDirection, float KnockbackMultiplier = 1.0F);
 	UFUNCTION(BlueprintImplementableEvent, Category = "Pyramid Character")
 	void OnDamaged();
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Pyramid Character")

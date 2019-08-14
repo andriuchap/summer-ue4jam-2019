@@ -350,7 +350,7 @@ void APyramidMathCharacter::AddHealth(int32 InAmount)
 	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
 }
 
-void APyramidMathCharacter::DealDamage(int32 InAmount, FVector DamageDirection)
+void APyramidMathCharacter::DealDamage(int32 InAmount, FVector DamageDirection, float KnockbackMultiplier)
 {
 	if (InAmount <= 0 || CurrentHealth == 0)
 	{
@@ -367,7 +367,7 @@ void APyramidMathCharacter::DealDamage(int32 InAmount, FVector DamageDirection)
 	OnHealthChanged.Broadcast(CurrentHealth, OldHealth);
 	FVector LaunchVelocity = DamageDirection + FVector::UpVector;
 	LaunchVelocity.Normalize();
-	LaunchCharacter(LaunchVelocity * 500.0F, true, true);
+	LaunchCharacter(LaunchVelocity * 500.0F * KnockbackMultiplier, true, true);
 }
 
 bool APyramidMathCharacter::IsDead()
@@ -483,10 +483,8 @@ void APyramidMathCharacter::TraceShot()
 void APyramidMathCharacter::CharacterBeginOverlap(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
 	IPlayerInteractable* Interactable = Cast<IPlayerInteractable>(OtherActor);
-	UE_LOG(LogTemp, Warning, TEXT("What the fuck?"));
 	if (Interactable && Interactable->CanInteract(this) && Interactable->IsInteractableComponent(OtherComp))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Ready to interact"));
 		InteractableActor = OtherActor;
 		APlayerController* PC = Cast<APlayerController>(GetController());
 		if (PC)
@@ -509,7 +507,6 @@ void APyramidMathCharacter::CharacterEndOverlap(UPrimitiveComponent * Overlapped
 {
 	if (OtherActor == InteractableActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Not interacting"));
 		InteractableActor = nullptr;
 		APlayerController* PC = Cast<APlayerController>(GetController());
 		if (PC)

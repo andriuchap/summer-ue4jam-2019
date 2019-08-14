@@ -38,6 +38,7 @@ bool ASupplyContainer::Interact(APyramidMathCharacter * InCharacter)
 		InCharacter->AddHealth(ContainedHealth);
 		InCharacter->AddTorchFuel(ContainedTorchFuel);
 	}
+	OnLooted();
 	return true;
 }
 

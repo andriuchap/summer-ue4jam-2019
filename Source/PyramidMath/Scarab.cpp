@@ -55,7 +55,6 @@ void AScarab::ScanForPlayer()
 			{
 				if (Hit.bBlockingHit)
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Blocking Hit! Got: %s"), *Hit.GetActor()->GetName());
 					AActor* HitActor = Hit.GetActor();
 					if (HitActor == Pawn)
 					{
